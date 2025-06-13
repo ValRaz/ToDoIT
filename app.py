@@ -3,7 +3,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime, timezone
 
-# ---- Firestore Initialization ----
+# Initializes Firestore
 cred = credentials.Certificate(
     r"C:\Users\nutca\Downloads\todo-it-109a2-firebase-adminsdk-fbsvc-f6afa6d121.json"
 )
