@@ -2,7 +2,7 @@
 For this project, I set out to build a simple yet powerful To-Do List application that leverages a managed NoSQL database. This project demonstrates how to integrate a Streamlit-based Python frontend with Google Cloud Firestore, enabling real-time-like CRUD operations, structured data modeling, and secure client-side interactions. This application allows users to **create**, **read**, **update**, and **delete** personal tasks through an intuitive web interface.
 My goal in writing this software is to deepen my understanding of cloud database modeling, serverless API integration, and reactive web interfaces. By end-to-end developing this app, I’ve reinforced best practices for data schema design, local testing against the Firestore emulator, and continuous UI refresh techniques.
 
-[Software Demo Video](https://www.youtube.com/watch?v=zH3MbfXJcQQ)
+[Software Demo Video](https://www.youtube.com/watch?v=iBMld7mT5t0)
 
 # Cloud Database
 I used **Google Cloud Firestore** as the backend database for its serverless scalability, real-time listeners, and fine-grained security rules.
