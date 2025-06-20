@@ -2,6 +2,7 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime, timezone
+from streamlit_autorefresh import st_autorefresh
 
 # Initializes Firestore
 cred = credentials.Certificate(
@@ -39,6 +40,9 @@ st.set_page_config(
     layout="wide",
 )
 
+# Enables polling to auto-refresh every 5 seconds
+st_autorefresh(interval=5000, key="polling")
+
 st.title("\U0001F3F7\ufe0f ToDo*IT")
 st.markdown(
     """
@@ -54,45 +58,17 @@ sort_order    = st.sidebar.radio("Sort by", ["created_at", "updated_at"])
 # Sets up container layout for the UI
 col1, col2 = st.columns([2, 1])
 
-with col1:
-    # Sets up filtering on left sidebar
-    st.markdown("### \U0001F4CB Task List")
-    docs = db.collection("tasks").order_by(sort_order).stream()
-    filtered = []
-    for doc in docs:
-        data = doc.to_dict()
-        if status_filter == "all" or data["status"] == status_filter:
-            filtered.append((doc.id, data))
+# Sets up create-form counter for clearing
+if "create_counter" not in st.session_state:
+    st.session_state["create_counter"] = 0
 
-    # Displays the filtered list
-    for doc_id, data in filtered:
-        checked = st.checkbox(
-            data["title"],
-            value=(data["status"] == "completed"),
-            key=doc_id
-        )
-        if checked and data["status"] != "completed":
-            db.collection("tasks").document(doc_id).update({
-                "status": "completed",
-                "updated_at": datetime.now(timezone.utc)
-            })
-        elif not checked and data["status"] != "pending":
-            db.collection("tasks").document(doc_id).update({
-                "status": "pending",
-                "updated_at": datetime.now(timezone.utc)
-            })
-
-        # Delete button
-        if st.button("\U0001F5D1\ufe0f Delete", key=f"del-{doc_id}"):
-            db.collection("tasks").document(doc_id).delete()
-            st.experimental_rerun()
-
-# Displays the create task form
 with col2:
+    # Displays the create task form
     st.markdown("### \U0001F4DD Add a New Task")
-    with st.form("create_task_form"):
-        new_title = st.text_input("Title")
-        new_desc  = st.text_area("Description")
+    form_key = f"create_task_form_{st.session_state['create_counter']}"
+    with st.form(form_key):
+        new_title = st.text_input("Title", key="new_title")
+        new_desc  = st.text_area("Description", key="new_desc")
         submitted = st.form_submit_button("Create Task")
 
         if submitted:
@@ -100,7 +76,72 @@ with col2:
                 st.error("Title cannot be empty.")
             else:
                 create_task(new_title, new_desc)
-                st.success("\u2705 Task created successfully!")
+                st.session_state["create_counter"] += 1
+                st.success("\u2705 Task created!")
+
+with col1:
+    # Displays the filtered list
+    st.markdown("### \U0001F4CB Task List")
+    docs = db.collection("tasks").order_by(sort_order).stream()
+
+    for doc in docs:
+        data = doc.to_dict()
+        if status_filter != "all" and data["status"] != status_filter:
+            continue
+
+        # Title & description
+        st.markdown(f"**{data['title']}**")
+        st.write(data["description"])
+
+        # Completion toggle
+        checked = st.checkbox(
+            "Mark complete",
+            value=(data["status"] == "completed"),
+            key=f"chk-{doc.id}",
+            label_visibility="hidden"
+        )
+        if checked and data["status"] != "completed":
+            db.collection("tasks").document(doc.id).update({
+                "status": "completed",
+                "updated_at": datetime.now(timezone.utc)
+            })
+        elif not checked and data["status"] != "pending":
+            db.collection("tasks").document(doc.id).update({
+                "status": "pending",
+                "updated_at": datetime.now(timezone.utc)
+            })
+
+        # Delete button
+        if st.button("\U0001F5D1\ufe0f Delete", key=f"del-{doc.id}"):
+            db.collection("tasks").document(doc.id).delete()
+
+        # Sets up edit-form counter for clearing
+        edit_counter_key = f"edit_counter_{doc.id}"
+        if edit_counter_key not in st.session_state:
+            st.session_state[edit_counter_key] = 0
+
+        # Compute dynamic keys using the counter
+        title_key = f"edit_title_{doc.id}_{st.session_state[edit_counter_key]}"
+        desc_key  = f"edit_desc_{doc.id}_{st.session_state[edit_counter_key]}"
+        form_key  = f"edit_form_{doc.id}_{st.session_state[edit_counter_key]}"
+
+        # Edit task expander
+        with st.expander("\u270F\ufe0f Edit Task", expanded=False):
+            with st.form(form_key):
+                edit_title = st.text_input("Title", value="", key=title_key)
+                edit_desc  = st.text_area("Description", value="", key=desc_key)
+
+                save = st.form_submit_button("Save Changes")
+
+                if save:
+                    db.collection("tasks").document(doc.id).update({
+                        "title": edit_title,
+                        "description": edit_desc,
+                        "updated_at": datetime.now(timezone.utc)
+                    })
+                    # Force fields to reset by incrementing counter
+                    st.session_state[edit_counter_key] += 1
+                    st.success("\u2705 Task updated!")
 
 # Footer
 st.markdown("---")
